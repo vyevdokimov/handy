@@ -407,3 +407,86 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Idle state and draggable indicator */
+.sidle {
+  grid-template-columns: 24px 1fr 24px;
+}
+.sdrag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 28px;
+  cursor: grab;
+  color: var(--s-muted);
+  opacity: 0.6;
+  transition:
+    opacity 150ms ease,
+    color 150ms ease;
+  user-select: none;
+}
+.sdrag-handle:hover {
+  opacity: 1;
+  color: var(--s-accent);
+}
+.sdrag-handle:active {
+  cursor: grabbing;
+}
+.srecord-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 14px;
+  color: var(--color-text);
+  transition:
+    background-color 150ms ease,
+    transform 100ms ease;
+}
+.srecord-btn:hover {
+  background: var(--s-accent-soft);
+  transform: scale(1.02);
+}
+.srecord-btn:active {
+  transform: scale(0.98);
+}
+.srecord-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--s-accent);
+  color: #fff;
+}
+.srecord-label {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.sstop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  transition: transform 150ms ease;
+}
+.sstop-btn:hover {
+  transform: scale(1.2);
+}
+.swave-wrapper {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}

@@ -561,6 +561,13 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Whether to keep the overlay visible on screen in an idle state so the user can
+    /// click it to start recording.
+    #[serde(default = "default_always_show_overlay")]
+    pub always_show_overlay: bool,
+    /// Custom screen coordinates (x, y) if the user moved the overlay window.
+    #[serde(default)]
+    pub overlay_custom_position: Option<(i32, i32)>,
 }
 
 fn default_model() -> String {
@@ -622,6 +629,10 @@ fn default_overlay_style() -> OverlayStyle {
     return OverlayStyle::None;
     #[cfg(not(target_os = "linux"))]
     return OverlayStyle::Live;
+}
+
+fn default_always_show_overlay() -> bool {
+    false
 }
 
 fn default_vad_enabled() -> bool {
@@ -1058,6 +1069,8 @@ pub fn get_default_settings() -> AppSettings {
         language_detection: LanguageDetectionMode::default(),
         language_detection_window_secs: default_language_detection_window_secs(),
         overlay_style: default_overlay_style(),
+        always_show_overlay: default_always_show_overlay(),
+        overlay_custom_position: None,
     }
 }
 

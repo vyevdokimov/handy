@@ -517,6 +517,13 @@
             "bottom": "Снизу",
             "top": "Сверху"
           }
+        },
+        "alwaysShow": {
+          "label": "Всегда отображать индикатор",
+          "description": "Отображать индикатор на экране в режиме ожидания, чтобы можно было кликнуть по нему для начала и остановки записи."
+        },
+        "resetPosition": {
+          "label": "Сбросить позицию"
         }
       },
       "pasteMethod": {
@@ -958,7 +965,10 @@
   "overlay": {
     "transcribing": "Расшифровка...",
     "processing": "Обработка...",
-    "loadingModel": "Загрузка модели..."
+    "loadingModel": "Загрузка модели...",
+    "clickToRecord": "Запись",
+    "clickToStop": "Нажмите для остановки",
+    "dragToMove": "Перетащить"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} может блокировать 1 сочетание клавиш",

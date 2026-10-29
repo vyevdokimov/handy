@@ -517,6 +517,13 @@
             "bottom": "Bottom",
             "top": "Top"
           }
+        },
+        "alwaysShow": {
+          "label": "Always Show Indicator",
+          "description": "Keep the indicator visible on screen in an idle state so you can click it to start and stop recording."
+        },
+        "resetPosition": {
+          "label": "Reset Position"
         }
       },
       "pasteMethod": {
@@ -958,7 +965,10 @@
   "overlay": {
     "transcribing": "Transcribing...",
     "processing": "Processing...",
-    "loadingModel": "Loading model..."
+    "loadingModel": "Loading model...",
+    "clickToRecord": "Record",
+    "clickToStop": "Click to stop",
+    "dragToMove": "Drag to move"
   },
   "secureInput": {
     "blockedWithCulprit_one": "{{name}} may be blocking 1 shortcut",

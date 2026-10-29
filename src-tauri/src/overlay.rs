@@ -248,6 +248,11 @@ fn calculate_overlay_position(
     width: f64,
     height: f64,
 ) -> Option<(f64, f64)> {
+    let settings = settings::get_settings(app_handle);
+    if let Some((cx, cy)) = settings.overlay_custom_position {
+        return Some((cx as f64, cy as f64));
+    }
+
     let monitor = get_monitor_with_cursor(app_handle)?;
     let scale = monitor.scale_factor();
     let monitor_x = monitor.position().x as f64 / scale;
@@ -344,18 +349,27 @@ fn place_windows_overlay(
 ) -> Result<(), String> {
     use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER};
 
+    let settings = settings::get_settings(app_handle);
     let monitor = get_monitor_with_cursor(app_handle)
+        .or_else(|| app_handle.primary_monitor().ok().flatten())
         .ok_or_else(|| "failed to determine the monitor containing the cursor".to_string())?;
     let text_scale = windows_text_scale_factor();
-    let (x, y, width, height) = windows_overlay_bounds(
-        *monitor.position(),
-        *monitor.size(),
-        monitor.scale_factor(),
-        text_scale,
-        logical_width,
-        logical_height,
-        settings::get_settings(app_handle).overlay_position,
-    );
+    let (x, y, width, height) = if let Some((cx, cy)) = settings.overlay_custom_position {
+        let content_scale = monitor.scale_factor() * text_scale;
+        let width = (logical_width * content_scale).round().max(1.0) as i32;
+        let height = (logical_height * content_scale).round().max(1.0) as i32;
+        (cx, cy, width, height)
+    } else {
+        windows_overlay_bounds(
+            *monitor.position(),
+            *monitor.size(),
+            monitor.scale_factor(),
+            text_scale,
+            logical_width,
+            logical_height,
+            settings.overlay_position,
+        )
+    };
     let hwnd = overlay_window
         .hwnd()
         .map_err(|error| format!("failed to get overlay window handle: {error}"))?;
@@ -630,6 +644,11 @@ pub fn show_processing_overlay(app_handle: &AppHandle) {
     show_overlay_state(app_handle, "processing");
 }
 
+/// Shows the idle overlay window (ready for click to record)
+pub fn show_idle_overlay(app_handle: &AppHandle) {
+    show_overlay_state(app_handle, "idle");
+}
+
 /// Updates the overlay window position based on current settings
 pub fn update_overlay_position(app_handle: &AppHandle) {
     // Positioning queries monitors/cursor (GDK/Xlib on Linux) and moves the
@@ -685,18 +704,23 @@ fn update_overlay_position_on_main(app_handle: &AppHandle) {
 /// the instant it drained, well inside the 300 ms hide delay.
 static OVERLAY_SHOW_GENERATION: AtomicU64 = AtomicU64::new(0);
 
-/// Hides the recording overlay window with fade-out animation
+/// Hides the recording overlay window with fade-out animation. If `always_show_overlay`
+/// is enabled and overlay style is not None, transitions back to the idle overlay state instead.
 pub fn hide_recording_overlay(app_handle: &AppHandle) {
-    // Always hide the overlay regardless of settings - if setting was changed while recording,
-    // we still want to hide it properly
+    let settings = settings::get_settings(app_handle);
+    if settings.always_show_overlay && settings.overlay_style != OverlayStyle::None {
+        show_idle_overlay(app_handle);
+        return;
+    }
+
+    force_hide_overlay(app_handle);
+}
+
+/// Forcibly hides the overlay window regardless of `always_show_overlay` setting
+pub fn force_hide_overlay(app_handle: &AppHandle) {
     if let Some(overlay_window) = app_handle.get_webview_window("recording_overlay") {
-        // Snapshot before doing anything observable, so any show that lands
-        // after this point invalidates the delayed hide below.
         let scheduled_at = OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst);
-        // Emit event to trigger fade-out animation
         let _ = overlay_window.emit("hide-overlay", ());
-        // Hide the window after a short delay to allow animation to complete,
-        // unless a newer session has shown the overlay again by then.
         let window_clone = overlay_window.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_millis(300));
@@ -706,6 +730,22 @@ pub fn hide_recording_overlay(app_handle: &AppHandle) {
             }
             let _ = window_clone.hide();
         });
+    }
+}
+
+/// Handles runtime toggle of the `always_show_overlay` setting
+pub fn handle_always_show_overlay_changed(app_handle: &AppHandle, enabled: bool) {
+    let settings = settings::get_settings(app_handle);
+    if enabled && settings.overlay_style != OverlayStyle::None {
+        show_idle_overlay(app_handle);
+    } else if !enabled {
+        let is_recording = app_handle
+            .try_state::<std::sync::Arc<crate::managers::audio::AudioManager>>()
+            .map(|am| am.is_recording())
+            .unwrap_or(false);
+        if !is_recording {
+            force_hide_overlay(app_handle);
+        }
     }
 }
 

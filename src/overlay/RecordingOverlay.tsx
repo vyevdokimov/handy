@@ -1,6 +1,8 @@
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { GripVertical, Mic } from "lucide-react";
 import "./RecordingOverlay.css";
 import { commands, events } from "@/bindings";
 import type {
@@ -13,7 +15,12 @@ import i18n, { syncLanguageFromSettings } from "@/i18n";
 import type { ModelStateEvent } from "@/lib/types/events";
 import { getLanguageDirection } from "@/lib/utils/rtl";
 
-type OverlayState = "recording" | "streaming" | "transcribing" | "processing";
+type OverlayState =
+  | "idle"
+  | "recording"
+  | "streaming"
+  | "transcribing"
+  | "processing";
 
 // Number of reactive bars in the waveform (the simple, smoothed style shared by
 // every overlay form). Mic levels arrive as 16 FFT buckets; we take the first N.
@@ -69,6 +76,42 @@ const RecordingOverlay: React.FC = () => {
   const capRef = useRef<HTMLDivElement>(null);
   const pinnedRef = useRef(true);
   const direction = getLanguageDirection(i18n.language);
+
+  const handleDragStart = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    try {
+      const appWindow = getCurrentWebviewWindow();
+      await appWindow.startDragging();
+    } catch (err) {
+      console.error("Failed to start dragging:", err);
+    }
+  };
+
+  useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let unlisten: (() => void) | null = null;
+
+    const setupMovedListener = async () => {
+      try {
+        const appWindow = getCurrentWebviewWindow();
+        unlisten = await appWindow.onMoved(({ payload: pos }) => {
+          if (timeoutId) clearTimeout(timeoutId);
+          timeoutId = setTimeout(() => {
+            commands.saveOverlayPosition(pos.x, pos.y).catch(() => {});
+          }, 300);
+        });
+      } catch {
+        // Ignored
+      }
+    };
+
+    setupMovedListener();
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      if (unlisten) unlisten();
+    };
+  }, []);
 
   useEffect(() => {
     const setupEventListeners = async () => {
@@ -258,14 +301,51 @@ const RecordingOverlay: React.FC = () => {
     </button>
   );
 
+  const idleRow = () => (
+    <div className="sbase sidle">
+      <div
+        className="sdrag-handle"
+        title={t("overlay.dragToMove")}
+        onMouseDown={handleDragStart}
+      >
+        <GripVertical size={14} className="sdrag-icon" />
+      </div>
+      <button
+        type="button"
+        className="srecord-btn"
+        title={t("overlay.clickToRecord")}
+        onClick={() => commands.toggleRecording()}
+      >
+        <span className="srecord-icon-wrapper">
+          <Mic size={13} className="srecord-icon" />
+        </span>
+        <span className="srecord-label">{t("overlay.clickToRecord")}</span>
+      </button>
+      <div className="sbase-r" />
+    </div>
+  );
+
   // dot (left) | waveform (center) | timer + cancel (right) — same structure for
   // pill & panel, so the Live morph is a pure width change.
   const listeningRow = (showTimer: boolean, showCancel: boolean) => (
     <div className="sbase">
       <div className="sbase-l">
-        <span className={`sdot ${captureReady ? "ready" : "arming"}`} />
+        <button
+          type="button"
+          className="sstop-btn"
+          title={t("overlay.clickToStop")}
+          onClick={() => commands.toggleRecording()}
+        >
+          <span className={`sdot ${captureReady ? "ready" : "arming"}`} />
+        </button>
       </div>
-      {waveform}
+      <div
+        className="swave-wrapper"
+        title={t("overlay.clickToStop")}
+        onClick={() => commands.toggleRecording()}
+      >
+        {waveform}
+      </div>
       <div className="sbase-r">
         {showTimer && <span className="stimer">{fmtTime(elapsed)}</span>}
         {showCancel && cancelBtn}
@@ -341,6 +421,17 @@ const RecordingOverlay: React.FC = () => {
               )
             : listeningRow(open, true)}
         </div>
+      </div>
+    );
+  }
+
+  if (state === "idle") {
+    return (
+      <div
+        dir={direction}
+        className={`ov-stage ${position} ov-fade ${isVisible ? "show" : ""}`}
+      >
+        <div className="scard compact">{idleRow()}</div>
       </div>
     );
   }

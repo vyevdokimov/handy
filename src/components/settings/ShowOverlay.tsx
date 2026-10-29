@@ -2,7 +2,10 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { Dropdown } from "../ui/Dropdown";
 import { SettingContainer } from "../ui/SettingContainer";
+import { ToggleSwitch } from "../ui/ToggleSwitch";
+import { Button } from "../ui/Button";
 import { useSettings } from "../../hooks/useSettings";
+import { commands } from "@/bindings";
 import type { OverlayPosition, OverlayStyle } from "@/bindings";
 
 interface ShowOverlayProps {
@@ -13,7 +16,8 @@ interface ShowOverlayProps {
 export const ShowOverlay: React.FC<ShowOverlayProps> = React.memo(
   ({ descriptionMode = "tooltip", grouped = false }) => {
     const { t } = useTranslation();
-    const { getSetting, updateSetting, isUpdating } = useSettings();
+    const { getSetting, updateSetting, isUpdating, refreshSettings } =
+      useSettings();
 
     const styleOptions = [
       {
@@ -47,6 +51,13 @@ export const ShowOverlay: React.FC<ShowOverlayProps> = React.memo(
     // "none" from before the position was retired) falls back to "bottom".
     const selectedPosition: OverlayPosition =
       getSetting("overlay_position") === "top" ? "top" : "bottom";
+    const alwaysShowOverlay = Boolean(getSetting("always_show_overlay"));
+    const hasCustomPosition = Boolean(getSetting("overlay_custom_position"));
+
+    const handleResetPosition = async () => {
+      await commands.resetOverlayPosition();
+      await refreshSettings();
+    };
 
     return (
       <>
@@ -67,21 +78,49 @@ export const ShowOverlay: React.FC<ShowOverlayProps> = React.memo(
         </SettingContainer>
 
         {selectedStyle !== "none" && (
-          <SettingContainer
-            title={t("settings.advanced.overlay.position.title")}
-            description={t("settings.advanced.overlay.position.description")}
-            descriptionMode={descriptionMode}
-            grouped={grouped}
-          >
-            <Dropdown
-              options={positionOptions}
-              selectedValue={selectedPosition}
-              onSelect={(value) =>
-                updateSetting("overlay_position", value as OverlayPosition)
+          <>
+            <ToggleSwitch
+              checked={alwaysShowOverlay}
+              onChange={(enabled) =>
+                updateSetting("always_show_overlay", enabled)
               }
-              disabled={isUpdating("overlay_position")}
+              isUpdating={isUpdating("always_show_overlay")}
+              label={t("settings.advanced.overlay.alwaysShow.label")}
+              description={t(
+                "settings.advanced.overlay.alwaysShow.description",
+              )}
+              descriptionMode={descriptionMode}
+              grouped={grouped}
+              tooltipPosition="bottom"
             />
-          </SettingContainer>
+
+            <SettingContainer
+              title={t("settings.advanced.overlay.position.title")}
+              description={t("settings.advanced.overlay.position.description")}
+              descriptionMode={descriptionMode}
+              grouped={grouped}
+            >
+              <div className="flex items-center gap-2">
+                <Dropdown
+                  options={positionOptions}
+                  selectedValue={selectedPosition}
+                  onSelect={(value) =>
+                    updateSetting("overlay_position", value as OverlayPosition)
+                  }
+                  disabled={isUpdating("overlay_position")}
+                />
+                {hasCustomPosition && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleResetPosition}
+                  >
+                    {t("settings.advanced.overlay.resetPosition.label")}
+                  </Button>
+                )}
+              </div>
+            </SettingContainer>
+          </>
         )}
       </>
     );

@@ -761,6 +761,18 @@ pub fn change_overlay_style_setting(app: AppHandle, style: String) -> Result<(),
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_always_show_overlay_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.always_show_overlay = enabled;
+    settings::write_settings(&app, settings);
+
+    crate::overlay::handle_always_show_overlay_changed(&app, enabled);
+
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_debug_mode_setting(app: AppHandle, enabled: bool) -> Result<(), String> {
     let mut settings = settings::get_settings(&app);
     settings.debug_mode = enabled;

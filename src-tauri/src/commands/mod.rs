@@ -18,6 +18,31 @@ pub fn cancel_operation(app: AppHandle) {
 
 #[tauri::command]
 #[specta::specta]
+pub fn toggle_recording(app: AppHandle) {
+    crate::signal_handle::send_transcription_input(&app, "transcribe", "Overlay");
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.overlay_custom_position = Some((x, y));
+    write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn reset_overlay_position(app: AppHandle) -> Result<(), String> {
+    let mut settings = get_settings(&app);
+    settings.overlay_custom_position = None;
+    write_settings(&app, settings);
+    crate::overlay::update_overlay_position(&app);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn is_portable() -> bool {
     crate::portable::is_portable()
 }
