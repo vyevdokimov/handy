@@ -740,7 +740,7 @@ pub fn handle_always_show_overlay_changed(app_handle: &AppHandle, enabled: bool)
         show_idle_overlay(app_handle);
     } else if !enabled {
         let is_recording = app_handle
-            .try_state::<std::sync::Arc<crate::managers::audio::AudioManager>>()
+            .try_state::<std::sync::Arc<crate::managers::audio::AudioRecordingManager>>()
             .map(|am| am.is_recording())
             .unwrap_or(false);
         if !is_recording {
