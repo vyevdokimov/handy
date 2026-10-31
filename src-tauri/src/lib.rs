@@ -731,6 +731,7 @@ pub fn run(cli_args: CliArgs) {
             show_main_window_command,
             commands::cancel_operation,
             commands::toggle_recording,
+            commands::set_overlay_position,
             commands::save_overlay_position,
             commands::reset_overlay_position,
             commands::is_portable,

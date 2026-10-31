@@ -581,6 +581,14 @@ async cancelOperation() : Promise<void> {
 async toggleRecording() : Promise<void> {
     await TAURI_INVOKE("toggle_recording");
 },
+async setOverlayPosition(x: number, y: number) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_overlay_position", { x, y }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async saveOverlayPosition(x: number, y: number) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("save_overlay_position", { x, y }) };

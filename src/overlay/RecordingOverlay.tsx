@@ -77,13 +77,123 @@ const RecordingOverlay: React.FC = () => {
   const pinnedRef = useRef(true);
   const direction = getLanguageDirection(i18n.language);
 
-  const handleDragStart = async (e: React.MouseEvent) => {
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ screenX: 0, screenY: 0, winX: 0, winY: 0 });
+  const lastKnownWinPosRef = useRef<{ x: number; y: number } | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const targetPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Cache initial overlay window position
+  useEffect(() => {
+    const fetchInitialPos = async () => {
+      try {
+        const appWindow = getCurrentWebviewWindow();
+        const pos = await appWindow.outerPosition();
+        lastKnownWinPosRef.current = { x: pos.x, y: pos.y };
+      } catch {
+        // Ignored
+      }
+    };
+    fetchInitialPos();
+  }, []);
+
+  const handlePointerDown = async (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
     e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // Ignored
+    }
+
+    let winX = lastKnownWinPosRef.current?.x ?? 0;
+    let winY = lastKnownWinPosRef.current?.y ?? 0;
+
     try {
       const appWindow = getCurrentWebviewWindow();
-      await appWindow.startDragging();
-    } catch (err) {
-      console.error("Failed to start dragging:", err);
+      const pos = await appWindow.outerPosition();
+      winX = pos.x;
+      winY = pos.y;
+      lastKnownWinPosRef.current = { x: winX, y: winY };
+    } catch {
+      // Use cached if query fails
+    }
+
+    dragStartRef.current = {
+      screenX: e.screenX,
+      screenY: e.screenY,
+      winX,
+      winY,
+    };
+    isDraggingRef.current = true;
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const dpr = window.devicePixelRatio || 1;
+    const deltaX = Math.round((e.screenX - dragStartRef.current.screenX) * dpr);
+    const deltaY = Math.round((e.screenY - dragStartRef.current.screenY) * dpr);
+    const newX = dragStartRef.current.winX + deltaX;
+    const newY = dragStartRef.current.winY + deltaY;
+
+    targetPosRef.current = { x: newX, y: newY };
+    lastKnownWinPosRef.current = { x: newX, y: newY };
+
+    if (rafIdRef.current === null) {
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        if (targetPosRef.current) {
+          commands
+            .setOverlayPosition(targetPosRef.current.x, targetPosRef.current.y)
+            .catch(() => {});
+        }
+      });
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignored
+    }
+
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+
+    const dpr = window.devicePixelRatio || 1;
+    const deltaX = Math.round((e.screenX - dragStartRef.current.screenX) * dpr);
+    const deltaY = Math.round((e.screenY - dragStartRef.current.screenY) * dpr);
+    const finalX = dragStartRef.current.winX + deltaX;
+    const finalY = dragStartRef.current.winY + deltaY;
+
+    lastKnownWinPosRef.current = { x: finalX, y: finalY };
+
+    commands.setOverlayPosition(finalX, finalY).catch(() => {});
+    commands.saveOverlayPosition(finalX, finalY).catch(() => {});
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignored
+    }
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
     }
   };
 
@@ -306,7 +416,10 @@ const RecordingOverlay: React.FC = () => {
       <div
         className="sdrag-handle"
         title={t("overlay.dragToMove")}
-        onMouseDown={handleDragStart}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
       >
         <GripVertical size={14} className="sdrag-icon" />
       </div>
@@ -321,7 +434,14 @@ const RecordingOverlay: React.FC = () => {
         </span>
         <span className="srecord-label">{t("overlay.clickToRecord")}</span>
       </button>
-      <div className="sbase-r" />
+      <div
+        className="sbase-r sdrag-handle"
+        style={{ width: "24px", height: "100%" }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+      />
     </div>
   );
 

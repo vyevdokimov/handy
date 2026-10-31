@@ -24,6 +24,35 @@ pub fn toggle_recording(app: AppHandle) {
 
 #[tauri::command]
 #[specta::specta]
+pub fn set_overlay_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
+    if let Some(overlay_window) = app.get_webview_window("recording_overlay") {
+        #[cfg(target_os = "windows")]
+        {
+            use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOSIZE, SWP_NOZORDER};
+            if let Ok(hwnd) = overlay_window.hwnd() {
+                unsafe {
+                    let _ = SetWindowPos(
+                        hwnd,
+                        None,
+                        x,
+                        y,
+                        0,
+                        0,
+                        SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER,
+                    );
+                }
+            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = overlay_window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn save_overlay_position(app: AppHandle, x: i32, y: i32) -> Result<(), String> {
     let mut settings = get_settings(&app);
     settings.overlay_custom_position = Some((x, y));
