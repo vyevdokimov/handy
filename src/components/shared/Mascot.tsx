@@ -15,8 +15,8 @@ const BOX_ASPECT = 357 / 400;
 export const Mascot: React.FC<MascotProps> = ({ size, animation = null }) => (
   <span
     style={{ width: size * BOX_ASPECT, height: size }}
-    className={`relative block origin-[50%_90%] rotate-[-8deg] select-none ${animation === "wave" ? "animate-wave" : animation === "slap" ? "animate-slap" : ""}`}
+    className={`relative block origin-[50%_90%] select-none ${animation === "wave" ? "animate-wave" : animation === "slap" ? "animate-slap" : ""}`}
   >
-    <HandyMascot className="absolute start-[12.6%] top-[7.25%] h-[85.25%] w-auto" />
+    <HandyMascot className="absolute start-[7.35%] top-[7.35%] h-[85.25%] w-auto" />
   </span>
 );
