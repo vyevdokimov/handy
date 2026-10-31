@@ -282,6 +282,16 @@ jobs:
           # Two ARM-static CMake overrides, forwarded by src-tauri/build.rs to the
           # transcribe-cpp-sys configure via TRANSCRIBE_CMAKE_ARGS (applied AFTER
           # the crate's own -D's, so ours win):
+
+      - name: Strip Windows signCommand when sign-binaries is disabled
+        if: contains(inputs.platform, 'windows') && !inputs.sign-binaries
+        shell: pwsh
+        run: |
+          $confPath = "src-tauri/tauri.conf.json"
+          $content = Get-Content $confPath -Raw
+          $content = $content -replace '"signCommand":\s*"[^"]*",?', ''
+          Set-Content $confPath $content
+          Write-Host "Stripped signCommand from $confPath"
           #
           #   GGML_NATIVE=OFF  — only the dynamic-backends path force-sets this; a
           #     plain static build inherits ggml's default GGML_NATIVE=ON
