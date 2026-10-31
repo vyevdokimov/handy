@@ -457,14 +457,17 @@ jobs:
           "$tools_dir/linuxdeploy-${arch}.AppImage" --appimage-extract-and-run --version
 
       - name: Strip updater pubkey when signing key is missing
-        if: ${{ !secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        env:
+          TAURI_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         shell: pwsh
         run: |
-          $confPath = "src-tauri/tauri.conf.json"
-          $content = Get-Content $confPath -Raw
-          $content = $content -replace '"pubkey":\s*"[^"]*",?', ''
-          Set-Content $confPath $content
-          Write-Host "No TAURI_SIGNING_PRIVATE_KEY secret found. Stripped pubkey from $confPath to allow unsigned build."
+          if (-not $env:TAURI_KEY) {
+            $confPath = "src-tauri/tauri.conf.json"
+            $content = Get-Content $confPath -Raw
+            $content = $content -replace '"pubkey":\s*"[^"]*",?', ''
+            Set-Content $confPath $content
+            Write-Host "No TAURI_SIGNING_PRIVATE_KEY secret found. Stripped pubkey from $confPath to allow unsigned build."
+          }
 
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
