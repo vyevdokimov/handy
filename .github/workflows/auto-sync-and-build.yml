@@ -1,0 +1,83 @@
+name: "Auto Sync, Rebase & Build"
+
+on:
+  schedule:
+    # Запуск каждую ночь в 03:00 UTC (06:00 МСК)
+    - cron: "0 3 * * *"
+  # Возможность запустить в любой момент вручную из вкладки Actions
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: "Force build even if no new commits in upstream"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync-and-rebase:
+    name: "Sync with Upstream & Rebase"
+    runs-on: ubuntu-latest
+    outputs:
+      has_changes: ${{ steps.check.outputs.has_changes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feat/clickable-draggable-overlay
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add and fetch upstream
+        run: |
+          git remote add upstream https://github.com/cjpais/Handy.git
+          git fetch upstream main
+
+      - name: Update local main branch
+        run: |
+          git checkout main
+          git merge upstream/main --ff-only || git reset --hard upstream/main
+          git push origin main
+
+      - name: Check for upstream changes and rebase
+        id: check
+        run: |
+          # Проверяем, сколько коммитов из свежего main ещё не вошли в нашу ветку
+          BEHIND_COUNT=$(git rev-list --count feat/clickable-draggable-overlay..main)
+          echo "Commits behind upstream: $BEHIND_COUNT"
+          
+          if [ "$BEHIND_COUNT" -gt 0 ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            git checkout feat/clickable-draggable-overlay
+            git rebase main
+            git push --force-with-lease origin feat/clickable-draggable-overlay
+          elif [ "${{ inputs.force_build }}" = "true" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "Forced build triggered."
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+            echo "Fork is up to date, skipping build."
+          fi
+
+  build-windows:
+    name: "Build Windows Installer"
+    needs: sync-and-rebase
+    if: needs.sync-and-rebase.outputs.has_changes == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: "windows-latest"
+      target: "x86_64-pc-windows-msvc"
+      build-args: ""
+      ref: "feat/clickable-draggable-overlay"
+      asset-prefix: "handy-fork"
+      upload-artifacts: true
+      sign-binaries: false
+      is-debug-build: false
+    secrets: inherit
