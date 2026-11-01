@@ -40,25 +40,18 @@ jobs:
         run: |
           git remote add upstream https://github.com/cjpais/Handy.git || true
           git fetch upstream main
-          git fetch origin main
-
-      - name: Update local main branch
-        run: |
-          git checkout -B main origin/main
-          git merge upstream/main --ff-only || git reset --hard upstream/main
-          git push origin main
 
       - name: Check for upstream changes and rebase
         id: check
         run: |
-          # Проверяем, сколько коммитов из свежего main ещё не вошли в нашу ветку
-          BEHIND_COUNT=$(git rev-list --count feat/clickable-draggable-overlay..main)
+          # Проверяем, сколько коммитов из официального upstream/main ещё не вошли в нашу ветку
+          BEHIND_COUNT=$(git rev-list --count feat/clickable-draggable-overlay..upstream/main)
           echo "Commits behind upstream: $BEHIND_COUNT"
           
           if [ "$BEHIND_COUNT" -gt 0 ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
             git checkout feat/clickable-draggable-overlay
-            git rebase main
+            git rebase upstream/main
             git push --force-with-lease origin feat/clickable-draggable-overlay
           elif [ "${{ inputs.force_build }}" = "true" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
