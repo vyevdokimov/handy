@@ -34,15 +34,17 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config checkout.defaultRemote origin
 
       - name: Add and fetch upstream
         run: |
-          git remote add upstream https://github.com/cjpais/Handy.git
+          git remote add upstream https://github.com/cjpais/Handy.git || true
           git fetch upstream main
+          git fetch origin main
 
       - name: Update local main branch
         run: |
-          git checkout main
+          git checkout -B main origin/main
           git merge upstream/main --ff-only || git reset --hard upstream/main
           git push origin main
 

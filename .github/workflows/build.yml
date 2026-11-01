@@ -282,6 +282,16 @@ jobs:
           # Two ARM-static CMake overrides, forwarded by src-tauri/build.rs to the
           # transcribe-cpp-sys configure via TRANSCRIBE_CMAKE_ARGS (applied AFTER
           # the crate's own -D's, so ours win):
+
+      - name: Strip Windows signCommand when sign-binaries is disabled
+        if: contains(inputs.platform, 'windows') && !inputs.sign-binaries
+        shell: pwsh
+        run: |
+          $confPath = "src-tauri/tauri.conf.json"
+          $content = Get-Content $confPath -Raw
+          $content = $content -replace '"signCommand":\s*"[^"]*",?', ''
+          Set-Content $confPath $content
+          Write-Host "Stripped signCommand from $confPath"
           #
           #   GGML_NATIVE=OFF  — only the dynamic-backends path force-sets this; a
           #     plain static build inherits ggml's default GGML_NATIVE=ON
@@ -446,6 +456,19 @@ jobs:
           chmod +x "$tools_dir/linuxdeploy-${arch}.AppImage"
           "$tools_dir/linuxdeploy-${arch}.AppImage" --appimage-extract-and-run --version
 
+      - name: Strip updater pubkey when signing key is missing
+        env:
+          TAURI_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        shell: pwsh
+        run: |
+          if (-not $env:TAURI_KEY) {
+            $confPath = "src-tauri/tauri.conf.json"
+            $content = Get-Content $confPath -Raw
+            $content = $content -replace '"pubkey":\s*"[^"]*",?', ''
+            Set-Content $confPath $content
+            Write-Host "No TAURI_SIGNING_PRIVATE_KEY secret found. Stripped pubkey from $confPath to allow unsigned build."
+          }
+
       - name: Build with Tauri
         uses: tauri-apps/tauri-action@v0
         env:
@@ -460,8 +483,8 @@ jobs:
           AZURE_CLIENT_ID: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_ID || '' }}
           AZURE_CLIENT_SECRET: ${{ inputs.sign-binaries && secrets.AZURE_CLIENT_SECRET || '' }}
           AZURE_TENANT_ID: ${{ inputs.sign-binaries && secrets.AZURE_TENANT_ID || '' }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ inputs.sign-binaries && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ inputs.sign-binaries && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           # The Vulkan loader and Wayland client library must come from the host
           # graphics stack. Bundling Ubuntu's copies ahead of the system libraries can
           # prevent a newer distro's Vulkan ICD or Mesa stack from loading.
