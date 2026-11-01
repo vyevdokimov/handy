@@ -632,7 +632,7 @@ fn default_overlay_style() -> OverlayStyle {
 }
 
 fn default_always_show_overlay() -> bool {
-    false
+    true
 }
 
 fn default_vad_enabled() -> bool {

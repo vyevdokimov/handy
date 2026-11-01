@@ -198,29 +198,28 @@ const RecordingOverlay: React.FC = () => {
   };
 
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    let unlisten: (() => void) | null = null;
-
-    const setupMovedListener = async () => {
+    const initOverlayState = async () => {
       try {
-        const appWindow = getCurrentWebviewWindow();
-        unlisten = await appWindow.onMoved(({ payload: pos }) => {
-          if (timeoutId) clearTimeout(timeoutId);
-          timeoutId = setTimeout(() => {
-            commands.saveOverlayPosition(pos.x, pos.y).catch(() => {});
-          }, 300);
-        });
-      } catch {
-        // Ignored
+        await syncLanguageFromSettings();
+        const settings = await commands.getAppSettings();
+        if (settings.status === "ok") {
+          setPosition(
+            settings.data.overlay_position === "top" ? "top" : "bottom",
+          );
+          if (
+            settings.data.always_show_overlay &&
+            settings.data.overlay_style !== "none"
+          ) {
+            setState("idle");
+            setIsVisible(true);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to init overlay state:", err);
       }
     };
 
-    setupMovedListener();
-
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (unlisten) unlisten();
-    };
+    initOverlayState();
   }, []);
 
   useEffect(() => {

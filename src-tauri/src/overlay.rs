@@ -230,6 +230,31 @@ fn is_mouse_within_monitor(
         && mouse_y < (monitor_y + monitor_height as i32)
 }
 
+fn is_position_within_monitors(
+    app_handle: &AppHandle,
+    x: i32,
+    y: i32,
+    width: i32,
+    height: i32,
+) -> bool {
+    if let Ok(monitors) = app_handle.available_monitors() {
+        for monitor in monitors {
+            let mon_pos = monitor.position();
+            let mon_size = monitor.size();
+            let mon_right = mon_pos.x + mon_size.width as i32;
+            let mon_bottom = mon_pos.y + mon_size.height as i32;
+            if x + width > mon_pos.x + 20
+                && x < mon_right - 20
+                && y + height > mon_pos.y + 20
+                && y < mon_bottom - 20
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 /// Returns overlay position in logical coordinates (points on macOS).
 ///
 /// The Bottom anchor uses the macOS work area (visibleFrame) so the overlay
@@ -250,7 +275,9 @@ fn calculate_overlay_position(
 ) -> Option<(f64, f64)> {
     let settings = settings::get_settings(app_handle);
     if let Some((cx, cy)) = settings.overlay_custom_position {
-        return Some((cx as f64, cy as f64));
+        if is_position_within_monitors(app_handle, cx, cy, width as i32, height as i32) {
+            return Some((cx as f64, cy as f64));
+        }
     }
 
     let monitor = get_monitor_with_cursor(app_handle)?;
@@ -358,7 +385,23 @@ fn place_windows_overlay(
         let content_scale = monitor.scale_factor() * text_scale;
         let width = (logical_width * content_scale).round().max(1.0) as i32;
         let height = (logical_height * content_scale).round().max(1.0) as i32;
-        (cx, cy, width, height)
+        if is_position_within_monitors(app_handle, cx, cy, width, height) {
+            (cx, cy, width, height)
+        } else {
+            log::warn!("Overlay custom position ({cx}, {cy}) is off-screen. Reverting to default.");
+            let mut mutable_settings = settings.clone();
+            mutable_settings.overlay_custom_position = None;
+            settings::write_settings(app_handle, mutable_settings);
+            windows_overlay_bounds(
+                *monitor.position(),
+                *monitor.size(),
+                monitor.scale_factor(),
+                text_scale,
+                logical_width,
+                logical_height,
+                settings.overlay_position,
+            )
+        }
     } else {
         windows_overlay_bounds(
             *monitor.position(),
